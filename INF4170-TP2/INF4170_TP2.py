@@ -53,25 +53,30 @@ class Cache():
         self.rows[cache_row.index] = cache_row
 
     def load_word(self, address):
-        print('INSIDE LOAD WORD')
+
         index = self.get_index_from_address(address)
         tag = self.get_tag_from_address(address)
         print('calculated tag {:08X}'.format(tag))
         row = self.rows[index]
         if row.valid == 1 and row.tag == tag:
+            print('HIT')
             return row
         else:
+            print('MISS')
             word_1 = self.central_memory.get_value_at_address(address)
             word_2 = self.central_memory.get_value_at_address(address + 4)
             self.rows[index] = Cache_Row(index, 1, tag, word_1, word_2)
 
     def store_word(self, address, value):
-        print('INSIDE STORE WORD')
+
         index = self.get_index_from_address(address)
         tag = self.get_tag_from_address
         row = self.rows[index]
         if row.valid != 1 or row.tag == tag:
+            print('MISS')
             self.load_word(address)
+        elif row.valid == 1 and row.tag == tag:
+            print('HIT')
         word_index = self.get_word_index(address)
         if word_index == 1:
             self.rows[index].word_1 = address
@@ -180,10 +185,20 @@ rows = {
 cache = Cache(rows)
 
 for operation in operations:
+    
     if operation.operation == 'lw':
+        print('{} {:08X}'.format(operation.operation, operation.address))
         cache.load_word(operation.address)
     elif operation.operation == 'sw':
+        print('{} {:08X} {:08X}'.format(operation.operation, operation.address, operation.value))
         cache.store_word(operation.address, operation.value)
+    print('----\n')
 
+
+print('CACHE ROWS -----')
+for index, value in cache.rows.items():
+    print('index {} tag {:08X} word 1 {:08X} word 2 {:08X}'.format(index, value.tag, value.word_1, value.word_2))     
+
+print('MODIFIED CENTRAL MEMORY ROWS ----')
 for address,value in cache.central_memory.modified_words.items():
     print('address {:08X} value {:08X}'.format(address, value)) 
