@@ -56,8 +56,13 @@ class Cache():
 
         index = self.get_index_from_address(address)
         tag = self.get_tag_from_address(address)
-        print('calculated tag {:08X}'.format(tag))
         row = self.rows[index]
+        print('calculated tag {:08X} compared to {:08X}'.format(tag, row.tag))
+
+
+        if (self.type == Cache_Types.DIRECT_MAPPED):
+            row.valid = 1
+
         if row.valid == 1 and row.tag == tag:
             print('HIT')
             return row
@@ -72,6 +77,7 @@ class Cache():
         index = self.get_index_from_address(address)
         tag = self.get_tag_from_address
         row = self.rows[index]
+        
         if row.valid != 1 or row.tag == tag:
             print('MISS')
             self.load_word(address)
