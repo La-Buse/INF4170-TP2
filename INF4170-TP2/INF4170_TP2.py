@@ -129,7 +129,7 @@ class Cache():
         tag = self.get_tag_from_address(address)
         row = self.rows[index]
 
-        if self.write_through:
+        if not self.write_through:
             row.dirty = True
         
         if row.valid != 1 or row.tag != tag:

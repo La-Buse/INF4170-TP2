@@ -11,11 +11,11 @@ class Operation():
         self.value = value
 
 class Cache_Row():
-    def __init__(self, index, word_1, word_2, valid=0, tag=None, word_3=None, word_4=None):
-        self.dirty = False
+    def __init__(self, index, word_1, word_2, valid=False, word_3=None, word_4=None):
+        self.increment = 0
         self.index = index
         self.valid = valid
-        self.tag = tag
+        self.address = address
         self.word_1 = word_1
         self.word_2 = word_2
         self.word_3 = word_3
@@ -32,15 +32,13 @@ class Cache():
         self.block_mask_size = int(math.log(self.block_size_in_words * 4, 2))
         self.write_through = write_through
 
-    def get_index_from_address(self, address):
-        new_address = address >> self.block_mask_size
-        index = get_n_first_bits(new_address, self.number_of_index_bits)
-        return index
-        #mask = (1 << (self.number_of_index_bits + 2)) - 1
-        #index = address & mask
-        #index = index >> 2
-        #print('calculated index: {0:b}'.format(index))
-        #return index
+    def get_row_index_from_address(self, address):
+        for row in self.rows:
+            if row.address is not None and row.address == address:
+                print('HIT')
+                return row.index
+        print('MISS')
+        return -1
 
     def get_tag_from_address(self, address):
         return address >> (self.number_of_index_bits + self.block_mask_size)
@@ -77,20 +75,35 @@ class Cache():
     def add_cache_row(cache_row):
         self.rows[cache_row.index] = cache_row
 
+    def get_next_row(self, address):
+        row_index  = self.get_row_index_from_address(address)
+        if row_index_from_address != -1:
+            return row_index
+
+        current_max = -1
+        for row in self.rows:
+            if row is not None and not row.valid:
+                return row.index
+        for row in self.rows:
+            if row.increment > current_max:
+                current_max = row.increment
+                row_index = row.index
+        return row_index
+
+    def look_for_address_in_rows(self, address):
+        for row in self.rows:
+            if row.address is not None and row.address == address:
+                return row.index
+        return -1
+
+    def increment_all_rows(self, index):
+        #remettre l'increment de la ligne utilisee  a 0
+        pass
+
     def load_word(self, address):
 
-        index = self.get_index_from_address(address)
-        tag = self.get_tag_from_address(address)
-        row = self.rows[index]
-
-        if (row.tag is None):
-            print('calculated tag {:08X} compared to None'.format(tag))
-        else:
-            print('calculated tag {:08X} compared to {:08X}'.format(tag, row.tag))
-
-
-        if (self.type == Cache_Types.DIRECT_MAPPED):
-            row.valid = 1
+        row_index = self.get_next_row(address)
+        row = self.rows[row_index]
 
         if row.valid == 1 and row.tag == tag:
             print('HIT')
@@ -103,6 +116,9 @@ class Cache():
             word_1 = self.central_memory.get_value_at_address(address)
             word_2 = self.central_memory.get_value_at_address(address + 4) #TODO change for actual number of words per block
             self.rows[index] = Cache_Row(index, 1, tag, word_1, word_2)
+        row.valid = 1
+
+        self.increment_all_rows()
 
     def write_back(self, block_address, row):
         tag = row.tag
@@ -125,9 +141,7 @@ class Cache():
 
     def store_word(self, address, value):
 
-        index = self.get_index_from_address(address)
-        tag = self.get_tag_from_address(address)
-        row = self.rows[index]
+        row_index = self.get_row_index_from_address(address)
 
         if self.write_through:
             row.dirty = True
@@ -146,6 +160,8 @@ class Cache():
             self.rows[index].word_2 = value
             if self.write_through:
                 self.central_memory.write_to_address(address, value)
+
+        self.increment_all_rows()
 
     def print_cache_state(self):
         for index, value in self.rows.items():
@@ -220,23 +236,6 @@ def get_n_first_bits(number, n):
     return int(new_binary_string, 2)
     
 
-
-#hex_value = 0x12345678
-#mask = (1 << 5) - 1
-#print(bin(hex_value))
-#var = hex_value & mask
-#print(bin(var))
-#print(bin(var >> 2))
-#print('{:08X}'.format(var))
-        
-#print('{:08X}'.format((0x12345678 >> 4) & 0xf)) 
-#print('{:08X}'.format((0x12345678 >> 4))) 
-
-#for i in range(0,16):
-#    if (i != 0):
-#        initial_value += 0x11111111
-#    print('{:08X}'.format(initial_value))
-
 operations = [
     Operation("lw", 0x1934EDD8),
     Operation("lw", 0x8944EFA4),
@@ -257,26 +256,13 @@ operations = [
     Operation("lw", 0x2823040C)
 ]
 
-rows = {
-    0: Cache_Row(0, None, None),
-    1: Cache_Row(1, None, None),
-    2: Cache_Row(2, None, None),
-    3: Cache_Row(3, None, None)
-}
-cache = Cache(rows, number_of_blocks=4, block_size_in_words = 2, cache_type=Cache_Types.FULLY_ASSOCIATIVE)
-
-#address = 0x00000024
-#print('index {:08X} address {:08X}'.format(cache.get_index_from_address(address), address))
-#address = 0x00000028
-#print('index {:08X} address {:08X}'.format(cache.get_index_from_address(address), address))
-#address = 0x00000014
-#print('index {:08X} address {:08X}'.format(cache.get_index_from_address(address), address))
-#address = 0x0000001C
-#print('index {:08X} address {:08X}'.format(cache.get_index_from_address(address), address))
-#address = 0x00000050
-#print('index {:08X} address {:08X}'.format(cache.get_index_from_address(address), address))
-
-#exit(0)
+rows = [
+    Cache_Row(0, None, None),
+    Cache_Row(1, None, None),
+    Cache_Row(2, None, None),
+    Cache_Row(3, None, None)
+]
+cache = Cache(rows, number_of_blocks=8, block_size_in_words = 2, cache_type=Cache_Types.FULLY_ASSOCIATIVE)
 
 
 for operation in operations:
