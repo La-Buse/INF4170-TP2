@@ -32,7 +32,7 @@ class Cache():
         mask = (1 << (self.number_of_index_bits + 2)) - 1
         index = address & mask
         index = index >> 2
-        print('calculated index:', bin(index))
+        print('calculated index: {0:b}'.format(index))
         return index
 
     def get_tag_from_address(self, address):
@@ -45,9 +45,27 @@ class Cache():
 
     def get_word_index(self, address):
         last_4_bits = address & 0xf # peut etre 0, 4, 8 ou 12
+
+        if self.block_size_in_words == 4:
+            if last_4_bits == 0:
+                return 1
+            elif last_4_bits == 4:
+                return 2
+            elif last_4_bits == 8:
+                return 3
+            elif last_4_bits == 12:
+                return 4
+        elif self.block_size_in_words == 2:
+            if last_4_bits == 0 or last_4_bits == 8:
+                return 1
+            elif last_4_bits == 4 or last_4_bits == 12:
+                return 2
+        elif self.block_size_in_words == 1:
+            return 1
+    
         block_size = (16 // self.block_size_in_words) 
         result = last_4_bits // block_size
-        return result + 1
+        return result
 
     def add_cache_row(cache_row):
         self.rows[cache_row.index] = cache_row
@@ -57,7 +75,11 @@ class Cache():
         index = self.get_index_from_address(address)
         tag = self.get_tag_from_address(address)
         row = self.rows[index]
-        print('calculated tag {:08X} compared to {:08X}'.format(tag, row.tag))
+
+        if (row.tag is None):
+            print('calculated tag {:08X} compared to None'.format(tag))
+        else:
+            print('calculated tag {:08X} compared to {:08X}'.format(tag, row.tag))
 
 
         if (self.type == Cache_Types.DIRECT_MAPPED):
@@ -69,27 +91,36 @@ class Cache():
         else:
             print('MISS')
             word_1 = self.central_memory.get_value_at_address(address)
-            word_2 = self.central_memory.get_value_at_address(address + 4)
+            word_2 = self.central_memory.get_value_at_address(address + 4) #TODO change for actual number of words per block
             self.rows[index] = Cache_Row(index, 1, tag, word_1, word_2)
 
     def store_word(self, address, value):
 
         index = self.get_index_from_address(address)
-        tag = self.get_tag_from_address
+        tag = self.get_tag_from_address(address)
         row = self.rows[index]
         
-        if row.valid != 1 or row.tag == tag:
+        if row.valid != 1 or row.tag != tag:
             print('MISS')
             self.load_word(address)
         elif row.valid == 1 and row.tag == tag:
             print('HIT')
         word_index = self.get_word_index(address)
         if word_index == 1:
-            self.rows[index].word_1 = address
+            self.rows[index].word_1 = value
             self.central_memory.write_to_address(address,value)
         elif word_index == 2:
-            self.rows[index].word_2 == address
+            self.rows[index].word_2 = value
             self.central_memory.write_to_address(address, value)
+
+    def print_cache_state(self):
+        for index, value in self.rows.items():
+            if (value.word_1 is not None and value.word_2 is not None and value.tag is not None):
+                print('index {} tag {:08X} word 1 {:08X} word 2 {:08X}'.format(index, value.tag, value.word_1, value.word_2))     
+            else:
+                print('index {} tag None word 1 None word 2 None'.format(index)) 
+
+            
                 
 
 class Central_Memory():
@@ -97,15 +128,17 @@ class Central_Memory():
         self.modified_words = {}
     def get_value_at_address(self, address):
         if address in self.modified_words:
+            print('Returning a modified value : central memory at address {:08X} is {:08X}'.format(address, self.modified_words[address]))
             return self.modified_words[address]
         else:
+            print('Returning central memory at address {:08X} is {:08X}'.format(address, self.get_default_value_at_address(address)))
             return self.get_default_value_at_address(address)
 
     def write_to_address(self, address, value):
         self.modified_words[address] = value
 
     def get_default_value_at_address(self, address):
-        if address <= 0x0FFFFFF:
+        if address <= 0x0FFFFFFF:
             return 0x00000000
         elif address <= 0x1FFFFFFF:
             return 0x11111111
@@ -121,7 +154,7 @@ class Central_Memory():
             return 0x66666666
         elif address <= 0x7FFFFFFF:
             return 0x77777777
-        elif address <= 0x8FFFFFFFF:
+        elif address <= 0x8FFFFFFF:
             return 0x88888888
         elif address <= 0x9FFFFFFF:
             return 0x99999999
@@ -131,11 +164,11 @@ class Central_Memory():
             return 0xBBBBBBBB
         elif address <= 0xCFFFFFFF:
             return 0xCCCCCCCC
-        elif address <= 0xDFFFFFFFF:
+        elif address <= 0xDFFFFFFF:
             return 0xDDDDDDDD
-        elif address <= 0xEFFFFFFFF:
+        elif address <= 0xEFFFFFFF:
             return 0xEEEEEEEE
-        elif address <= 0xFFFFFFFFF:
+        elif address <= 0xFFFFFFFF:
             return 0xFFFFFFFF 
 
 def set_bit(v, index, x):
@@ -198,6 +231,7 @@ for operation in operations:
     elif operation.operation == 'sw':
         print('{} {:08X} {:08X}'.format(operation.operation, operation.address, operation.value))
         cache.store_word(operation.address, operation.value)
+    cache.print_cache_state()
     print('----\n')
 
 
