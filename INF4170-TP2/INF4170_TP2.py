@@ -98,8 +98,9 @@ class Cache():
         else:
             print('MISS')
             if not self.write_through and row.dirty:
+                print('Writing dirty row to central memory')
                 self.write_back(row)
-                row.dirty = True
+                row.dirty = False
             word_1 = self.central_memory.get_value_at_address(address)
             word_2 = self.central_memory.get_value_at_address(address + 4) #TODO change for actual number of words per block
             self.rows[index] = Cache_Row(index, 1, tag, word_1, word_2)
@@ -142,6 +143,7 @@ class Cache():
             self.rows[index].word_1 = value
             if self.write_through:
                 self.central_memory.write_to_address(address,value)
+
         elif word_index == 2:
             self.rows[index].word_2 = value
             if self.write_through:

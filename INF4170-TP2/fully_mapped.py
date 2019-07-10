@@ -13,9 +13,10 @@ class Operation():
 class Cache_Row():
     def __init__(self, index, word_1, word_2, valid=False, word_3=None, word_4=None):
         self.increment = 0
+        self.dirty = False
         self.index = index
         self.valid = valid
-        self.address = address
+        self.address = None
         self.word_1 = word_1
         self.word_2 = word_2
         self.word_3 = word_3
@@ -77,18 +78,23 @@ class Cache():
 
     def get_next_row(self, address):
         row_index  = self.get_row_index_from_address(address)
-        if row_index_from_address != -1:
-            return row_index
+        if row_index != -1:
+            return True, row_index
 
         current_max = -1
+        
+        #find unoccupied row
         for row in self.rows:
             if row is not None and not row.valid:
-                return row.index
+                return False, row.index
+
+        #find oldest row in occupied rows
         for row in self.rows:
             if row.increment > current_max:
                 current_max = row.increment
                 row_index = row.index
-        return row_index
+
+        return False, row_index
 
     def look_for_address_in_rows(self, address):
         for row in self.rows:
@@ -96,34 +102,38 @@ class Cache():
                 return row.index
         return -1
 
-    def increment_all_rows(self, index):
+    def increment_all_rows(self):
         #remettre l'increment de la ligne utilisee  a 0
-        pass
+        for row in self.rows:
+            if row.valid:
+                row.increment += 1
 
     def load_word(self, address):
 
-        row_index = self.get_next_row(address)
+        block_address = self.get_block_address(address)
+        hit, row_index = self.get_next_row(block_address)
+        if hit:
+            return
         row = self.rows[row_index]
 
-        if row.valid == 1 and row.tag == tag:
-            print('HIT')
-            return row
-        else:
-            print('MISS')
-            if not self.write_through and row.dirty:
-                self.write_back(row)
-                row.dirty = True
-            word_1 = self.central_memory.get_value_at_address(address)
-            word_2 = self.central_memory.get_value_at_address(address + 4) #TODO change for actual number of words per block
-            self.rows[index] = Cache_Row(index, 1, tag, word_1, word_2)
-        row.valid = 1
+        if not self.write_through and row.dirty:
+            print('Writing dirty row to central memory')
+            self.write_back(block_address, row)
+            row.dirty = False
 
+        word_1 = self.central_memory.get_value_at_address(block_address)
+        word_2 = self.central_memory.get_value_at_address(block_address + 4) #TODO change for actual number of words per block
+        row.address = block_address
+        row.word_1 = word_1
+        row.word_2 = word_2
+        #self.rows[index] = Cache_Row(index, 1, tag, word_1, word_2)
+
+        row.valid = 1
+        row.increment = 0
         self.increment_all_rows()
 
     def write_back(self, block_address, row):
-        tag = row.tag
-        index = row.index
-        block_address = 0x0
+
         if self.block_size_in_words == 2:
             self.central_memory.write_to_address(block_address, row.word_1)
             self.central_memory.write_to_address(block_address + 4, row.word_2)
@@ -140,35 +150,45 @@ class Cache():
         
 
     def store_word(self, address, value):
-
-        row_index = self.get_row_index_from_address(address)
-
-        if self.write_through:
-            row.dirty = True
-        
-        if row.valid != 1 or row.tag != tag:
-            print('MISS')
+        block_address = self.get_block_address(address)
+        hit, row_index = self.get_next_row(block_address)
+        if not hit:
             self.load_word(address)
-        elif row.valid == 1 and row.tag == tag:
-            print('HIT')
         word_index = self.get_word_index(address)
+        row = self.rows[row_index]
+
         if word_index == 1:
-            self.rows[index].word_1 = value
-            if self.write_through:
-                self.central_memory.write_to_address(address,value)
+            row.word_1 = value
         elif word_index == 2:
-            self.rows[index].word_2 = value
-            if self.write_through:
-                self.central_memory.write_to_address(address, value)
+            row.word_2 = value      
+        if not self.write_through:
+            row.dirty = True
+
+        row.increment=0
+
+        #if row.valid != 1 or row.tag != tag:
+        #    print('MISS')
+        #    self.load_word(address)
+        #elif row.valid == 1 and row.tag == tag:
+        #    print('HIT')
+        #word_index = self.get_word_index(address)
+        #if word_index == 1:
+        #    self.rows[index].word_1 = value
+        #    if self.write_through:
+        #        self.central_memory.write_to_address(address,value)
+        #elif word_index == 2:
+        #    self.rows[index].word_2 = value
+        #    if self.write_through:
+        #        self.central_memory.write_to_address(address, value)
 
         self.increment_all_rows()
 
     def print_cache_state(self):
-        for index, value in self.rows.items():
-            if (value.word_1 is not None and value.word_2 is not None and value.tag is not None):
-                print('index {} tag {:08X} word 1 {:08X} word 2 {:08X}'.format(index, value.tag, value.word_1, value.word_2))     
+        for row in self.rows:
+            if (row.word_1 is not None and row.word_2 is not None and row.address is not None):
+                print('increment {} valid {} dirty {} address {:08X} word 1 {:08X} word 2 {:08X}'.format(row.increment, row.valid, row.dirty, row.address, row.word_1, row.word_2))     
             else:
-                print('index {} tag None word 1 None word 2 None'.format(index)) 
+                print('increment {} valid {} dirty {} address None word 1 None word 2 None'.format(row.increment, row.valid, row.dirty)) 
 
             
                 
@@ -176,6 +196,7 @@ class Cache():
 class Central_Memory():
     def __init__(self):
         self.modified_words = {}
+
     def get_value_at_address(self, address):
         if address in self.modified_words:
             print('Returning a modified value : central memory at address {:08X} is {:08X}'.format(address, self.modified_words[address]))
@@ -262,7 +283,7 @@ rows = [
     Cache_Row(2, None, None),
     Cache_Row(3, None, None)
 ]
-cache = Cache(rows, number_of_blocks=8, block_size_in_words = 2, cache_type=Cache_Types.FULLY_ASSOCIATIVE)
+cache = Cache(rows, number_of_blocks=8, block_size_in_words = 2, cache_type=Cache_Types.FULLY_ASSOCIATIVE, write_through=False)
 
 
 for operation in operations:
@@ -277,9 +298,9 @@ for operation in operations:
     print('----\n')
 
 
-print('CACHE ROWS -----')
-for index, value in cache.rows.items():
-    print('index {} tag {:08X} word 1 {:08X} word 2 {:08X}'.format(index, value.tag, value.word_1, value.word_2))     
+#print('CACHE ROWS -----')
+#for row in cache.rows:
+#    print('valid {} tag {:08X} word 1 {:08X} word 2 {:08X}'.format(row.valid, row.address, row.word_1, row.word_2))     
 
 print('MODIFIED CENTRAL MEMORY ROWS ----')
 for address,value in cache.central_memory.modified_words.items():
