@@ -112,13 +112,16 @@ class Cache():
 
         block_address = self.get_block_address(address)
         hit, row_index = self.get_next_row(block_address)
-        if hit:
-            return
         row = self.rows[row_index]
+        if hit:
+            row.increment = 0
+            self.increment_all_rows()
+            return
+
 
         if not self.write_through and row.dirty:
             print('Writing dirty row to central memory')
-            self.write_back(block_address, row)
+            self.write_back(row.address, row)
             row.dirty = False
 
         word_1 = self.central_memory.get_value_at_address(block_address)
@@ -152,10 +155,14 @@ class Cache():
     def store_word(self, address, value):
         block_address = self.get_block_address(address)
         hit, row_index = self.get_next_row(block_address)
+        row = self.rows[row_index]
         if not hit:
             self.load_word(address)
+        else:
+            row.increment=0
+            self.increment_all_rows()
         word_index = self.get_word_index(address)
-        row = self.rows[row_index]
+
 
         if word_index == 1:
             row.word_1 = value
@@ -163,8 +170,6 @@ class Cache():
             row.word_2 = value      
         if not self.write_through:
             row.dirty = True
-
-        row.increment=0
 
         #if row.valid != 1 or row.tag != tag:
         #    print('MISS')
@@ -181,7 +186,7 @@ class Cache():
         #    if self.write_through:
         #        self.central_memory.write_to_address(address, value)
 
-        self.increment_all_rows()
+
 
     def print_cache_state(self):
         for row in self.rows:
@@ -257,33 +262,63 @@ def get_n_first_bits(number, n):
     return int(new_binary_string, 2)
     
 
+#operations = [
+#    Operation("lw", 0x1934EDD8),
+#    Operation("lw", 0x8944EFA4),
+#    Operation("sw", 0xAF70ADC8, 0x19887766),
+#    Operation("lw", 0x0F58CC20),
+#    Operation("lw", 0xBEADDEF0),
+#    Operation("sw", 0x246EAF94, 0xAF7F7FF1),
+#    Operation("lw", 0x19060908),
+#    Operation("sw", 0x876D247C, 0x3003FFFF),
+#    Operation("sw", 0x2823040C, 0x1010FFAF),
+#    Operation("lw", 0x33444444),
+#    Operation("lw", 0x21448808),
+#    Operation("sw", 0x0ACCBEDC, 0x0ADD0001),
+#    Operation("lw", 0x2144880C),
+#    Operation("sw", 0x0ACCBED8, 0xCAFECAFE),
+#    Operation("sw", 0x2144880C, 0xCCCCCCCC),
+#    Operation("lw", 0x33444444),
+#    Operation("lw", 0x2823040C)
+#]
+
 operations = [
-    Operation("lw", 0x1934EDD8),
-    Operation("lw", 0x8944EFA4),
-    Operation("sw", 0xAF70ADC8, 0x19887766),
-    Operation("lw", 0x0F58CC20),
-    Operation("lw", 0xBEADDEF0),
-    Operation("sw", 0x246EAF94, 0xAF7F7FF1),
-    Operation("lw", 0x19060908),
-    Operation("sw", 0x876D247C, 0x3003FFFF),
-    Operation("sw", 0x2823040C, 0x1010FFAF),
-    Operation("lw", 0x33444444),
-    Operation("lw", 0x21448808),
-    Operation("sw", 0x0ACCBEDC, 0x0ADD0001),
-    Operation("lw", 0x2144880C),
-    Operation("sw", 0x0ACCBED8, 0xCAFECAFE),
-    Operation("sw", 0x2144880C, 0xCCCCCCCC),
-    Operation("lw", 0x33444444),
-    Operation("lw", 0x2823040C)
+    Operation("lw", 0x09448DDC),
+    Operation("lw", 0x9934FF04 ),
+    Operation("sw", 0xFF90ACC8, 0x99887766),
+    Operation("lw", 0xFF88CC00 ),
+    Operation("lw", 0xDEADBEF0 ),
+    Operation("sw", 0x348EEF54, 0xFFFFFFF1 ),
+    Operation("lw", 0x09090908 ),
+    Operation("sw", 0x8761230C, 0x0003FFFF ),
+    Operation("sw", 0x8883090C, 0x0010FFFF ),
+    Operation("lw", 0x44444444 ),
+    Operation("lw", 0x11448800 ),
+    Operation("sw", 0xAACCEEDC, 0xAADD0000
+)
 ]
+
 
 rows = [
     Cache_Row(0, None, None),
     Cache_Row(1, None, None),
     Cache_Row(2, None, None),
-    Cache_Row(3, None, None)
+    Cache_Row(3, None, None),
+    Cache_Row(4, None, None),
+    Cache_Row(5, None, None),
+    Cache_Row(6, None, None),
+    Cache_Row(7, None, None),
 ]
+
+#rows = [
+#    Cache_Row(0, None, None),
+#    Cache_Row(1, None, None),
+#    Cache_Row(2, None, None),
+#    Cache_Row(3, None, None)
+#]
+
 cache = Cache(rows, number_of_blocks=8, block_size_in_words = 2, cache_type=Cache_Types.FULLY_ASSOCIATIVE, write_through=False)
+#cache = Cache(rows, number_of_blocks=4, block_size_in_words = 2, cache_type=Cache_Types.FULLY_ASSOCIATIVE, write_through=False)
 
 
 for operation in operations:

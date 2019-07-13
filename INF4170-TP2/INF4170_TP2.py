@@ -105,7 +105,7 @@ class Cache():
             word_2 = self.central_memory.get_value_at_address(address + 4) #TODO change for actual number of words per block
             self.rows[index] = Cache_Row(index, 1, tag, word_1, word_2)
 
-    def write_back(self, block_address, row):
+    def write_back(self, block_address, row): #TODO Finish this function
         tag = row.tag
         index = row.index
         block_address = 0x0
