@@ -36,14 +36,11 @@ class Cache():
         new_address = address >> self.block_mask_size
         index = get_n_first_bits(new_address, self.number_of_index_bits)
         return index
-        #mask = (1 << (self.number_of_index_bits + 2)) - 1
-        #index = address & mask
-        #index = index >> 2
-        #print('calculated index: {0:b}'.format(index))
-        #return index
 
     def get_tag_from_address(self, address):
-        return address >> (self.number_of_index_bits + self.block_mask_size)
+        binary_string = get_binary_string(address)
+        tag = binary_string[:(32 - self.block_mask_size - self.number_of_index_bits)]
+        return tag
 
     def get_block_address(self, address):
         for i in range(0, self.block_mask_size):
@@ -84,9 +81,13 @@ class Cache():
         row = self.rows[index]
 
         if (row.tag is None):
-            print('calculated tag {:08X} compared to None'.format(tag))
+            print('calculated',end='')
+            self.print_tag(tag) 
+            print('compared to None')
         else:
-            print('calculated tag {:08X} compared to {:08X}'.format(tag, row.tag))
+            print('calculated', end='')
+            self.print_tag(tag)
+            print('compared to {}'.format(row.tag))
 
 
         if (self.type == Cache_Types.DIRECT_MAPPED):
@@ -101,9 +102,10 @@ class Cache():
                 print('Writing dirty row to central memory')
                 self.write_back(row)
                 row.dirty = False
-            word_1 = self.central_memory.get_value_at_address(address)
-            word_2 = self.central_memory.get_value_at_address(address + 4) #TODO change for actual number of words per block
-            self.rows[index] = Cache_Row(index, 1, tag, word_1, word_2)
+            block_address = self.get_block_address(address)
+            word_1 = self.central_memory.get_value_at_address(block_address)
+            word_2 = self.central_memory.get_value_at_address(block_address + 4) #TODO change for actual number of words per block
+            self.rows[index] = Cache_Row(index, word_1, word_2, 1, tag )
 
     def write_back(self, block_address, row): #TODO Finish this function
         tag = row.tag
@@ -149,10 +151,25 @@ class Cache():
             if self.write_through:
                 self.central_memory.write_to_address(address, value)
 
+    def print_tag(self, tag):
+        binary_string = tag
+        number_of_bits = len(binary_string)
+        number_of_bits_to_remove = number_of_bits % 4
+
+        hex_bits = binary_string[:(number_of_bits - number_of_bits_to_remove)]
+        last_bits = binary_string[number_of_bits - number_of_bits_to_remove:]
+        result = ' tag {:08X} ( {} )'.format(int(hex_bits,2), last_bits)
+        print(result, end = '')
+        return result
+            
+
     def print_cache_state(self):
         for index, value in self.rows.items():
             if (value.word_1 is not None and value.word_2 is not None and value.tag is not None):
-                print('index {} tag {:08X} word 1 {:08X} word 2 {:08X}'.format(index, value.tag, value.word_1, value.word_2))     
+                
+                print('index {}'.format(index), end = '')
+                self.print_tag(value.tag)
+                print(' word 1 {:08X} word 2 {:08X}'.format(value.word_1, value.word_2))     
             else:
                 print('index {} tag None word 1 None word 2 None'.format(index)) 
 
@@ -215,12 +232,21 @@ def set_bit(v, index, x):
     v |= mask         # If x was True, set the bit indicated by the mask.
   return v            # Return the result, we're done.
 
+def get_binary_format_string(number_of_bits):
+    return '{:0' + str(number_of_bits) + 'b}'
+
+def get_binary_string(number, number_of_bits = 32):
+    binary_string = get_binary_format_string(number_of_bits).format(number)
+    return binary_string
+
 def get_n_first_bits(number, n):
-    binary_string = bin(number)
-    binary_string_wo_0b = binary_string[2:]
-    new_binary_string = binary_string_wo_0b[(len(binary_string_wo_0b) -2):len(binary_string_wo_0b)]
+    new_binary_string = get_n_first_bit_string(number, n)
     return int(new_binary_string, 2)
-    
+
+def get_n_first_bit_string(number, n):
+    binary_string_wo_0b = get_binary_string(number)
+    new_binary_string = binary_string_wo_0b[(len(binary_string_wo_0b) -2):len(binary_string_wo_0b)]
+    return new_binary_string
 
 
 #hex_value = 0x12345678
