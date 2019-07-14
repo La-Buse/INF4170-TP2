@@ -100,8 +100,8 @@ class Cache():
     def get_set_index(self, block_address):
         binary_string = get_binary_string(block_address)
         binary_string = binary_string[:-self.block_mask_size]
-        binary_string = binary_string[-self.number_of_index_bits]
-        return int(binary_string)
+        binary_string = binary_string[-self.number_of_index_bits:]
+        return int(binary_string,2)
 
     def get_word_index(self, address):
         last_4_bits = address & 0xf # peut etre 0, 4, 8 ou 12
@@ -154,8 +154,8 @@ class Cache():
 
         block_address = self.get_block_address(address)
         tag = self.get_tag_from_address(address)
-        index = self.get_set_index(block_address)
-        set = self.sets[index]
+        set_index = self.get_set_index(block_address)
+        set = self.sets[set_index]
         hit, row = set.look_for_tag_in_rows(tag)
         if hit:
             row.increment = 0
@@ -167,19 +167,34 @@ class Cache():
 
         if not self.write_through and row.dirty:
             print('Writing dirty row to central memory')
-            self.write_back(row.address, row)
+            block_address = self.build_back_address(row.tag, set_index)
+            self.write_back(block_address, row)
             row.dirty = False
 
-        word_1 = self.central_memory.get_value_at_address(block_address)
-        word_2 = self.central_memory.get_value_at_address(block_address + 4) #TODO change for actual number of words per block
-        word_3 = self.central_memory.get_value_at_address(block_address + 8) #TODO change for actual number of words per block
-        word_4 = self.central_memory.get_value_at_address(block_address + 12) #TODO change for actual number of words per block
+        if (self.block_size_in_words == 4):
+            word_1 = self.central_memory.get_value_at_address(block_address)
+            word_2 = self.central_memory.get_value_at_address(block_address + 4) #TODO change for actual number of words per block
+            word_3 = self.central_memory.get_value_at_address(block_address + 8) #TODO change for actual number of words per block
+            word_4 = self.central_memory.get_value_at_address(block_address + 12) #TODO change for actual number of words per block
+
+            row.word_1 = word_1
+            row.word_2 = word_2
+            row.word_3 = word_3
+            row.word_4 = word_4
+
+        elif self.block_size_in_words == 2:
+            word_1 = self.central_memory.get_value_at_address(block_address)
+            word_2 = self.central_memory.get_value_at_address(block_address + 4) #TODO change for actual number of words per block
+
+            row.word_1 = word_1
+            row.word_2 = word_2
+
+        elif self.block_size_in_words == 1:
+            word_1 = self.central_memory.get_value_at_address(block_address)
+            row.word_1 = word_1
 
         row.tag = tag
-        row.word_1 = word_1
-        row.word_2 = word_2
-        row.word_3 = word_3
-        row.word_4 = word_4
+
         #self.rows[index] = Cache_Row(index, 1, tag, word_1, word_2)
 
         row.valid = 1
@@ -187,8 +202,11 @@ class Cache():
         set.increment_all_rows()
 
     def write_back(self, block_address, row):
-
-        if self.block_size_in_words == 2:
+        
+        if self.block_size_in_words == 1:
+            self.central_memory.write_to_address(block_address, row.word_1)
+            
+        elif self.block_size_in_words == 2:
             self.central_memory.write_to_address(block_address, row.word_1)
             self.central_memory.write_to_address(block_address + 4, row.word_2)
         elif self.block_size_in_words == 4:
@@ -197,10 +215,12 @@ class Cache():
             self.central_memory.write_to_address(block_address + 8, row.word_3)
             self.central_memory.write_to_address(block_address + 12, row.word_4)
 
-    def build_back_address(self, tag, index):
-        #address >> (self.number_of_index_bits + 2)
-        new_tag = tag << (self.number_of_index_bits + 2)
-        new_index = None
+    def build_back_address(self, tag, index, index_in_set=0):
+        block_address = tag + get_binary_string(index, self.number_of_index_bits)
+        for i in range(self.block_mask_size):
+            block_address += '0'
+        print('built back address {:0X}'.format(int(block_address,2)))
+        return int(block_address, 2)
         
 
     def store_word(self, address, value):
@@ -229,6 +249,8 @@ class Cache():
  
         if not self.write_through:
             row.dirty = True
+        else:
+            self.central_memory.write_to_address(address, value)
 
     def print_tag(self, tag):
         binary_string = tag
@@ -241,15 +263,23 @@ class Cache():
         print(result, end = '')
         return result
 
-
+    def print_words(self, row, number_of_words):
+        if (number_of_words == 4):
+            print(' word 1 {:08X} word 2 {:08X} word 3 {:08X} word 4 {:08X}'.format(row.word_1, row.word_2, row.word_3, row.word_4))     
+        elif number_of_words == 2:
+            print(' word 1 {:08X} word 2 {:08X} '.format(row.word_1, row.word_2))     
+        elif number_of_words == 1:
+            print(' word 1 {:08X}'.format(row.word_1))
+            
+            
 
     def print_cache_state(self):
         for set_index, set in self.sets.items():
             for row_index, row in set.rows.items():
-                if (row.word_1 is not None and row.word_2 is not None and row.tag is not None):
+                if (row.word_1 is not None  and row.tag is not None):
                     print('set index {} row index'.format(set_index, row_index), end = '')
                     self.print_tag(row.tag)
-                    print(' word 1 {:08X} word 2 {:08X} word 3 {:08X} word 4 {:08X}'.format(row.word_1, row.word_2, row.word_3, row.word_4))     
+                    self.print_words(row, self.block_size_in_words)
                 else:
                     print('increment {} valid {} dirty {} address None word 1 None word 2 None word 3 None word 4 None'.format(row.increment, row.valid, row.dirty)) 
 
@@ -330,41 +360,41 @@ def get_n_first_bit_string(number, n):
     return new_binary_string
     
 
-operations = [
-    Operation("lw", 0x1934EDD8),
-    Operation("lw", 0x8944EFA4),
-    Operation("sw", 0xAF70ADC8, 0x19887766),
-    Operation("lw", 0x0F58CC20),
-    Operation("lw", 0xBEADDEF0),
-    Operation("sw", 0x246EAF94, 0xAF7F7FF1),
-    Operation("lw", 0x19060908),
-    Operation("sw", 0x876D247C, 0x3003FFFF),
-    Operation("sw", 0x2823040C, 0x1010FFAF),
-    Operation("lw", 0x33444444),
-    Operation("lw", 0x21448808),
-    Operation("sw", 0x0ACCBEDC, 0x0ADD0001),
-    Operation("lw", 0x2144880C),
-    Operation("sw", 0x0ACCBED8, 0xCAFECAFE),
-    Operation("sw", 0x2144880C, 0xCCCCCCCC),
-    Operation("lw", 0x33444444),
-    Operation("lw", 0x2823040C)
-]
-
 #operations = [
-#    Operation("lw", 0x09448DDC),
-#    Operation("lw", 0x9934FF04 ),
-#    Operation("sw", 0xFF90ACC8, 0x99887766),
-#    Operation("lw", 0xFF88CC00 ),
-#    Operation("lw", 0xDEADBEF0 ),
-#    Operation("sw", 0x348EEF54, 0xFFFFFFF1 ),
-#    Operation("lw", 0x09090908 ),
-#    Operation("sw", 0x8761230C, 0x0003FFFF ),
-#    Operation("sw", 0x8883090C, 0x0010FFFF ),
-#    Operation("lw", 0x44444444 ),
-#    Operation("lw", 0x11448800 ),
-#    Operation("sw", 0xAACCEEDC, 0xAADD0000
-#)
+#    Operation("lw", 0x1934EDD8),
+#    Operation("lw", 0x8944EFA4),
+#    Operation("sw", 0xAF70ADC8, 0x19887766),
+#    Operation("lw", 0x0F58CC20),
+#    Operation("lw", 0xBEADDEF0),
+#    Operation("sw", 0x246EAF94, 0xAF7F7FF1),
+#    Operation("lw", 0x19060908),
+#    Operation("sw", 0x876D247C, 0x3003FFFF),
+#    Operation("sw", 0x2823040C, 0x1010FFAF),
+#    Operation("lw", 0x33444444),
+#    Operation("lw", 0x21448808),
+#    Operation("sw", 0x0ACCBEDC, 0x0ADD0001),
+#    Operation("lw", 0x2144880C),
+#    Operation("sw", 0x0ACCBED8, 0xCAFECAFE),
+#    Operation("sw", 0x2144880C, 0xCCCCCCCC),
+#    Operation("lw", 0x33444444),
+#    Operation("lw", 0x2823040C)
 #]
+
+operations = [
+    Operation("lw", 0x09448DDC),
+    Operation("lw", 0x9934FF04 ),
+    Operation("sw", 0xFF90ACC8, 0x99887766),
+    Operation("lw", 0xFF88CC00 ),
+    Operation("lw", 0xDEADBEF0 ),
+    Operation("sw", 0x348EEF54, 0xFFFFFFF1 ),
+    Operation("lw", 0x09090908 ),
+    Operation("sw", 0x8761230C, 0x0003FFFF ),
+    Operation("sw", 0x8883090C, 0x0010FFFF ),
+    Operation("lw", 0x44444444 ),
+    Operation("lw", 0x11448800 ),
+    Operation("sw", 0xAACCEEDC, 0xAADD0000
+)
+]
 
 
 #rows = [
@@ -385,8 +415,8 @@ operations = [
 #    Cache_Row(3, None, None)
 #]
 
-cache = Cache(number_of_blocks=8, block_size_in_words = 4, number_of_sets = 2, write_through = True)
-#cache = Cache(rows, number_of_blocks=4, block_size_in_words = 2, cache_type=Cache_Types.FULLY_ASSOCIATIVE, write_through=False)
+#cache = Cache(number_of_blocks=8, block_size_in_words = 4, number_of_sets = 2, write_through = True)
+cache = Cache(number_of_blocks=8, block_size_in_words = 1, number_of_sets = 4, write_through = False)
 
 
 for operation in operations:
