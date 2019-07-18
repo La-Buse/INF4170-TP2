@@ -1,5 +1,7 @@
 import math
 
+#TODO : le cache devrait initialiser ses blocs lui meme
+
 class Cache_Types:
     DIRECT_MAPPED = 1
     FULLY_ASSOCIATIVE = 2
@@ -262,41 +264,41 @@ def get_n_first_bits(number, n):
     return int(new_binary_string, 2)
     
 
-#operations = [
-#    Operation("lw", 0x1934EDD8),
-#    Operation("lw", 0x8944EFA4),
-#    Operation("sw", 0xAF70ADC8, 0x19887766),
-#    Operation("lw", 0x0F58CC20),
-#    Operation("lw", 0xBEADDEF0),
-#    Operation("sw", 0x246EAF94, 0xAF7F7FF1),
-#    Operation("lw", 0x19060908),
-#    Operation("sw", 0x876D247C, 0x3003FFFF),
-#    Operation("sw", 0x2823040C, 0x1010FFAF),
-#    Operation("lw", 0x33444444),
-#    Operation("lw", 0x21448808),
-#    Operation("sw", 0x0ACCBEDC, 0x0ADD0001),
-#    Operation("lw", 0x2144880C),
-#    Operation("sw", 0x0ACCBED8, 0xCAFECAFE),
-#    Operation("sw", 0x2144880C, 0xCCCCCCCC),
-#    Operation("lw", 0x33444444),
-#    Operation("lw", 0x2823040C)
-#]
-
 operations = [
-    Operation("lw", 0x09448DDC),
-    Operation("lw", 0x9934FF04 ),
-    Operation("sw", 0xFF90ACC8, 0x99887766),
-    Operation("lw", 0xFF88CC00 ),
-    Operation("lw", 0xDEADBEF0 ),
-    Operation("sw", 0x348EEF54, 0xFFFFFFF1 ),
-    Operation("lw", 0x09090908 ),
-    Operation("sw", 0x8761230C, 0x0003FFFF ),
-    Operation("sw", 0x8883090C, 0x0010FFFF ),
-    Operation("lw", 0x44444444 ),
-    Operation("lw", 0x11448800 ),
-    Operation("sw", 0xAACCEEDC, 0xAADD0000
-)
+    Operation("lw", 0x1934EDD8),
+    Operation("lw", 0x8944EFA4),
+    Operation("sw", 0xAF70ADC8, 0x19887766),
+    Operation("lw", 0x0F58CC20),
+    Operation("lw", 0xBEADDEF0),
+    Operation("sw", 0x246EAF94, 0xAF7F7FF1),
+    Operation("lw", 0x19060908),
+    Operation("sw", 0x876D247C, 0x3003FFFF),
+    Operation("sw", 0x2823040C, 0x1010FFAF),
+    Operation("lw", 0x33444444),
+    Operation("lw", 0x21448808),
+    Operation("sw", 0x0ACCBEDC, 0x0ADD0001),
+    Operation("lw", 0x2144880C),
+    Operation("sw", 0x0ACCBED8, 0xCAFECAFE),
+    Operation("sw", 0x2144880C, 0xCCCCCCCC),
+    Operation("lw", 0x33444444),
+    Operation("lw", 0x2823040C)
 ]
+
+#operations = [
+#    Operation("lw", 0x09448DDC),
+#    Operation("lw", 0x9934FF04 ),
+#    Operation("sw", 0xFF90ACC8, 0x99887766),
+#    Operation("lw", 0xFF88CC00 ),
+#    Operation("lw", 0xDEADBEF0 ),
+#    Operation("sw", 0x348EEF54, 0xFFFFFFF1 ),
+#    Operation("lw", 0x09090908 ),
+#    Operation("sw", 0x8761230C, 0x0003FFFF ),
+#    Operation("sw", 0x8883090C, 0x0010FFFF ),
+#    Operation("lw", 0x44444444 ),
+#    Operation("lw", 0x11448800 ),
+#    Operation("sw", 0xAACCEEDC, 0xAADD0000
+#)
+#]
 
 
 rows = [

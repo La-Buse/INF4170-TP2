@@ -1,5 +1,8 @@
 import math
 
+#TODO : le cache devrait initialiser ses blocs lui meme
+#TODO : combiner tous les types de cache dans un seul fichier
+
 class Cache_Types:
     DIRECT_MAPPED = 1
     FULLY_ASSOCIATIVE = 2
@@ -165,13 +168,21 @@ class Cache():
 
     def print_cache_state(self):
         for index, value in self.rows.items():
-            if (value.word_1 is not None and value.word_2 is not None and value.tag is not None):
+            if self.block_size_in_words == 2:
+                if (value.word_1 is not None and value.word_2 is not None and value.tag is not None):
                 
-                print('index {}'.format(index), end = '')
-                self.print_tag(value.tag)
-                print(' word 1 {:08X} word 2 {:08X}'.format(value.word_1, value.word_2))     
-            else:
-                print('index {} tag None word 1 None word 2 None'.format(index)) 
+                    print('index {}'.format(index), end = '')
+                    self.print_tag(value.tag)
+                    print(' word 1 {:08X} word 2 {:08X}'.format(value.word_1, value.word_2))     
+                else:
+                    print('index {} tag None word 1 None word 2 None'.format(index)) 
+            elif self.block_size_in_words ==1:
+                if (value.word_1 is not None and value.tag is not None):
+                    print('index {}'.format(index), end = '')
+                    self.print_tag(value.tag)
+                    print(' word 1 {:08X} '.format(value.word_1))
+                else:
+                    print('index {} tag None word 1 None word 2 None'.format(index)) 
 
             
                 
@@ -265,24 +276,40 @@ def get_n_first_bit_string(number, n):
 #        initial_value += 0x11111111
 #    print('{:08X}'.format(initial_value))
 
+#operations = [
+#    Operation("lw", 0x1934EDD8),
+#    Operation("lw", 0x8944EFA4),
+#    Operation("sw", 0xAF70ADC8, 0x19887766),
+#    Operation("lw", 0x0F58CC20),
+#    Operation("lw", 0xBEADDEF0),
+#    Operation("sw", 0x246EAF94, 0xAF7F7FF1),
+#    Operation("lw", 0x19060908),
+#    Operation("sw", 0x876D247C, 0x3003FFFF),
+#    Operation("sw", 0x2823040C, 0x1010FFAF),
+#    Operation("lw", 0x33444444),
+#    Operation("lw", 0x21448808),
+#    Operation("sw", 0x0ACCBEDC, 0x0ADD0001),
+#    Operation("lw", 0x2144880C),
+#    Operation("sw", 0x0ACCBED8, 0xCAFECAFE),
+#    Operation("sw", 0x2144880C, 0xCCCCCCCC),
+#    Operation("lw", 0x33444444),
+#    Operation("lw", 0x2823040C)
+#]
+
 operations = [
-    Operation("lw", 0x1934EDD8),
-    Operation("lw", 0x8944EFA4),
-    Operation("sw", 0xAF70ADC8, 0x19887766),
-    Operation("lw", 0x0F58CC20),
-    Operation("lw", 0xBEADDEF0),
-    Operation("sw", 0x246EAF94, 0xAF7F7FF1),
-    Operation("lw", 0x19060908),
-    Operation("sw", 0x876D247C, 0x3003FFFF),
-    Operation("sw", 0x2823040C, 0x1010FFAF),
-    Operation("lw", 0x33444444),
-    Operation("lw", 0x21448808),
-    Operation("sw", 0x0ACCBEDC, 0x0ADD0001),
-    Operation("lw", 0x2144880C),
-    Operation("sw", 0x0ACCBED8, 0xCAFECAFE),
-    Operation("sw", 0x2144880C, 0xCCCCCCCC),
-    Operation("lw", 0x33444444),
-    Operation("lw", 0x2823040C)
+    Operation("lw", 0x09448DDC),
+    Operation("lw", 0x9934FF04 ),
+    Operation("sw", 0xFF90ACC8, 0x99887766),
+    Operation("lw", 0xFF88CC00 ),
+    Operation("lw", 0xDEADBEF0 ),
+    Operation("sw", 0x348EEF54, 0xFFFFFFF1 ),
+    Operation("lw", 0x09090908 ),
+    Operation("sw", 0x8761230C, 0x0003FFFF ),
+    Operation("sw", 0x8883090C, 0x0010FFFF ),
+    Operation("lw", 0x44444444 ),
+    Operation("lw", 0x11448800 ),
+    Operation("sw", 0xAACCEEDC, 0xAADD0000
+)
 ]
 
 rows = {
@@ -291,8 +318,7 @@ rows = {
     2: Cache_Row(2, None, None),
     3: Cache_Row(3, None, None)
 }
-cache = Cache(rows, number_of_blocks=4, block_size_in_words = 2, cache_type=Cache_Types.FULLY_ASSOCIATIVE)
-
+cache = Cache(rows, number_of_blocks=4, block_size_in_words = 1, cache_type=Cache_Types.DIRECT_MAPPED)
 #address = 0x00000024
 #print('index {:08X} address {:08X}'.format(cache.get_index_from_address(address), address))
 #address = 0x00000028
@@ -321,7 +347,10 @@ for operation in operations:
 
 print('CACHE ROWS -----')
 for index, value in cache.rows.items():
-    print('index {} tag {:08X} word 1 {:08X} word 2 {:08X}'.format(index, value.tag, value.word_1, value.word_2))     
+    print('index {}'.format(index), end = '')
+    cache.print_tag(value.tag)
+    print(' word 1 {:08X} word 2 {:08X}'.format(value.word_1, value.word_2))  
+    #print('index {} tag {} word 1 {:08X} word 2 {:08X}'.format(index, value.tag, value.word_1, value.word_2))     
 
 print('MODIFIED CENTRAL MEMORY ROWS ----')
 for address,value in cache.central_memory.modified_words.items():
